@@ -1,23 +1,27 @@
-require 'parse_user_validator'
+require 'parse_resource/user_validator'
 
 class ParseUser < ParseResource::Base
   fields :username, :password
   
+  attr_accessor :app_id, :master_key
   validates_presence_of :username
   validates_presence_of :password
   #validates_with ParseUserValidator, :on => :create, :on => :save
+  def app_id
+    @app_id ||= settings['app_id']
+  end
+
+  def master_key
+    @master_key ||= settings['master_key']
+  end
 
   def self.authenticate(username, password)
     base_uri   = "https://api.parse.com/1/login"
-    app_id     = settings['app_id']
-    master_key = settings['master_key']
     resource = RestClient::Resource.new(base_uri, app_id, master_key)
     
     begin
       resp = resource.get(:params => {:username => username, :password => password})
-      user = model_name.constantize.new(JSON.parse(resp), false)
-            
-      user 
+      model_name.constantize.new(JSON.parse(resp), false)
     rescue 
       false
     end
@@ -26,8 +30,6 @@ class ParseUser < ParseResource::Base
   
   def self.authenticate_with_facebook(user_id, access_token, expires)
     base_uri   = "https://api.parse.com/1/users"
-    app_id     = settings['app_id']
-    master_key = settings['master_key']
     resource = RestClient::Resource.new(base_uri, app_id, master_key)
 
     begin
@@ -42,8 +44,7 @@ class ParseUser < ParseResource::Base
                             }
                       }.to_json,
                      :content_type => 'application/json', :accept => :json)
-      user = model_name.constantize.new(JSON.parse(resp), false)
-      user
+      model_name.constantize.new(JSON.parse(resp), false)
     rescue
       false
     end
@@ -51,8 +52,6 @@ class ParseUser < ParseResource::Base
   
   def self.reset_password(email)
       base_uri   = "https://api.parse.com/1/requestPasswordReset"
-      app_id     = settings['app_id']
-      master_key = settings['master_key']
       resource = RestClient::Resource.new(base_uri, app_id, master_key)
 
       begin

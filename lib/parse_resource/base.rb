@@ -1,13 +1,7 @@
-require "rubygems"
-require "bundler/setup"
-require "active_model"
-require "erb"
-require "rest-client"
-require "json"
 require "active_support/hash_with_indifferent_access"
-require "query"
-require "parse_error"
-require "parse_exceptions"
+require "parse_resource/query"
+require "parse_resource/error"
+require "parse_resource/exceptions"
 
 module ParseResource
   
@@ -94,32 +88,6 @@ module ParseResource
       end
     end
 
-    def self.method_missing(name, *args)
-      name = name.to_s
-      if name.start_with?("find_by_")
-        attribute   = name.gsub(/^find_by_/,"")
-        finder_name = "find_all_by_#{attribute}"
-
-        define_singleton_method(finder_name) do |target_value|
-          where({attribute.to_sym => target_value}).first
-        end
-
-        send(finder_name, args[0])
-
-      elsif name.start_with?("find_all_by_")
-        attribute   = name.gsub(/^find_all_by_/,"")
-        finder_name = "find_all_by_#{attribute}"
-
-        define_singleton_method(finder_name) do |target_value|
-          where({attribute.to_sym => target_value}).all
-        end
-
-        send(finder_name, args[0])
-      else
-        super(name.to_sym, *args)
-      end
-    end
-
     # Creates getter methods for model fields
     def create_getters!(k,v)
       self.class.send(:define_method, "#{k}") do
@@ -145,6 +113,32 @@ module ParseResource
       end      
     end
 
+    def self.method_missing(name, *args)
+      name = name.to_s
+      if name.start_with?("find_by_")
+        attribute   = name.gsub(/^find_by_/,"")
+        finder_name = "find_all_by_#{attribute}"
+
+        define_singleton_method(finder_name) do |target_value|
+          where({attribute.to_sym => target_value}).first
+        end
+
+        send(finder_name, args[0])
+
+      elsif name.start_with?("find_all_by_")
+        attribute   = name.gsub(/^find_all_by_/,"")
+        finder_name = "find_all_by_#{attribute}"
+
+        define_singleton_method(finder_name) do |target_value|
+          where({attribute.to_sym => target_value}).all
+        end
+
+        send(finder_name, args[0])
+      else
+        super(name.to_sym, *args)
+      end
+    end
+    
     def create_setters_and_getters!
       @attributes.each_pair do |k,v|
         create_setters!(k,v)
@@ -185,48 +179,6 @@ module ParseResource
         singleton
       end
       
-    end
-
-    @@settings ||= nil
-
-    # Explicitly set Parse.com API keys.
-    #
-    # @param [String] app_id the Application ID of your Parse database
-    # @param [String] master_key the Master Key of your Parse database
-    def self.load!(app_id, master_key)
-      @@settings = {"app_id" => app_id, "master_key" => master_key}
-    end
-
-    def self.settings
-      if @@settings.nil?
-        path = "config/parse_resource.yml"
-        #environment = defined?(Rails) && Rails.respond_to?(:env) ? Rails.env : ENV["RACK_ENV"]
-        environment = ENV["RACK_ENV"]
-        @@settings = YAML.load(ERB.new(File.new(path).read).result)[environment]
-      end
-      @@settings
-    end
-
-    # Creates a RESTful resource
-    # sends requests to [base_uri]/[classname]
-    #
-    def self.resource
-      if @@settings.nil?
-        path = "config/parse_resource.yml"
-        environment = defined?(Rails) && Rails.respond_to?(:env) ? Rails.env : ENV["RACK_ENV"]
-        @@settings = YAML.load(ERB.new(File.new(path).read).result)[environment]
-      end
-
-      if model_name == "User" #https://parse.com/docs/rest#users-signup
-        base_uri = "https://api.parse.com/1/users"
-      else
-        base_uri = "https://api.parse.com/1/classes/#{model_name}"
-      end
-
-      #refactor to settings['app_id'] etc
-      app_id     = @@settings['app_id']
-      master_key = @@settings['master_key']
-      RestClient::Resource.new(base_uri, app_id, master_key)
     end
 
     # Find a ParseResource::Base object by ID
@@ -309,6 +261,46 @@ module ParseResource
 
     def new?
       !persisted?
+    end
+
+    # Creates a RESTful resource
+    # sends requests to [base_uri]/[classname]
+    #
+    def self.resource
+      if @@settings.nil?
+        path = "config/parse_resource.yml"
+        environment = defined?(Rails) && Rails.respond_to?(:env) ? Rails.env : ENV["RACK_ENV"]
+        @@settings = YAML.load(ERB.new(File.new(path).read).result)[environment]
+      end
+
+      if model_name == "User" #https://parse.com/docs/rest#users-signup
+        base_uri = "https://api.parse.com/1/users"
+      else
+        base_uri = "https://api.parse.com/1/classes/#{model_name}"
+      end
+
+      #refactor to settings['app_id'] etc
+      app_id     = @@settings['app_id']
+      master_key = @@settings['master_key']
+      RestClient::Resource.new(base_uri, app_id, master_key)
+    end
+    
+    # Explicitly set Parse.com API keys.
+    #
+    # @param [String] app_id the Application ID of your Parse database
+    # @param [String] master_key the Master Key of your Parse database
+    def self.load!(app_id, master_key)
+      @@settings = {"app_id" => app_id, "master_key" => master_key}
+    end
+
+    def self.settings
+      if @@settings.nil?
+        path = "config/parse_resource.yml"
+        #environment = defined?(Rails) && Rails.respond_to?(:env) ? Rails.env : ENV["RACK_ENV"]
+        environment = ENV["RACK_ENV"]
+        @@settings = YAML.load(ERB.new(File.new(path).read).result)[environment]
+      end
+      @@settings
     end
 
     # delegate from Class method
