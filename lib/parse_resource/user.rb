@@ -2,22 +2,17 @@ require 'parse_resource/user_validator'
 
 class ParseUser < ParseResource::Base
   fields :username, :password
-  
-  attr_accessor :app_id, :master_key
+
+  MASTER_KEY = settings['master_key']
+  APP_ID = settings['app_id']
+
   validates_presence_of :username
   validates_presence_of :password
   #validates_with ParseUserValidator, :on => :create, :on => :save
-  def app_id
-    @app_id ||= settings['app_id']
-  end
-
-  def master_key
-    @master_key ||= settings['master_key']
-  end
 
   def self.authenticate(username, password)
     base_uri   = "https://api.parse.com/1/login"
-    resource = RestClient::Resource.new(base_uri, app_id, master_key)
+    resource = RestClient::Resource.new(base_uri, APP_ID, MASTER_KEY)
     
     begin
       resp = resource.get(:params => {:username => username, :password => password})
@@ -30,7 +25,7 @@ class ParseUser < ParseResource::Base
   
   def self.authenticate_with_facebook(user_id, access_token, expires)
     base_uri   = "https://api.parse.com/1/users"
-    resource = RestClient::Resource.new(base_uri, app_id, master_key)
+    resource = RestClient::Resource.new(base_uri, APP_ID, MASTER_KEY)
 
     begin
       resp = resource.post(
@@ -52,7 +47,7 @@ class ParseUser < ParseResource::Base
   
   def self.reset_password(email)
       base_uri   = "https://api.parse.com/1/requestPasswordReset"
-      resource = RestClient::Resource.new(base_uri, app_id, master_key)
+      resource = RestClient::Resource.new(base_uri, APP_ID, MASTER_KEY)
 
       begin
         resp = resource.post(:email => email)
